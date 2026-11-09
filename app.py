@@ -36,13 +36,36 @@ with st.sidebar:
       " **Evaluate Answer** for instant AI feedback!"
   )
 
+
+def generate_with_fallback(client, prompt):
+  """Tries multiple model names to prevent ClientError/404 model mismatch issues."""
+  models_to_try = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash"]
+  last_exception = None
+
+  for model_name in models_to_try:
+    try:
+      response = client.models.generate_content(
+          model=model_name, contents=prompt
+      )
+      return response
+    except Exception as e:
+      last_exception = e
+      continue
+
+  raise last_exception
+
+
 if not api_key:
   st.warning(
       "⚠️ Please enter your Gemini API Key in the sidebar to get started."
   )
 else:
-  # Initialize Gemini Client
-  client = genai.Client(api_key=api_key)
+  try:
+    # Initialize Gemini Client
+    client = genai.Client(api_key=api_key)
+  except Exception as e:
+    st.error(f"Failed to initialize Gemini Client: {e}")
+    st.stop()
 
   uploaded_file = st.file_uploader(
       "Upload Textbook Chapter (PDF or TXT)", type=["pdf", "txt"]
@@ -51,13 +74,19 @@ else:
   chapter_text = ""
   if uploaded_file is not None:
     if uploaded_file.type == "application/pdf":
-      reader = PdfReader(uploaded_file)
-      for page in reader.pages:
-        text = page.extract_text()
-        if text:
-          chapter_text += text + "\n"
+      try:
+        reader = PdfReader(uploaded_file)
+        for page in reader.pages:
+          text = page.extract_text()
+          if text:
+            chapter_text += text + "\n"
+      except Exception as e:
+        st.error(f"Error reading PDF file: {e}")
     else:
-      chapter_text = uploaded_file.read().decode("utf-8")
+      try:
+        chapter_text = uploaded_file.read().decode("utf-8")
+      except Exception as e:
+        st.error(f"Error reading text file: {e}")
 
     if chapter_text:
       st.success(
@@ -82,10 +111,14 @@ else:
                 " Questions) suitable for Pakistani Matric/Intermediate exams."
                 f" Respond in {language}.\n\nChapter Text:\n{chapter_text[:12000]}"
             )
-            response = client.models.generate_content(
-                model="gemini-2.5-flash", contents=prompt
-            )
-            st.session_state["questions"] = response.text
+            try:
+              response = generate_with_fallback(client, prompt)
+              st.session_state["questions"] = response.text
+            except Exception as e:
+              st.error(
+                  f"Error generating questions. Please verify your API key or"
+                  f" quota: {e}"
+              )
 
       # Display Questions if available
       if "questions" in st.session_state:
@@ -110,10 +143,13 @@ else:
                   f" Text:\n{chapter_text[:12000]}\n\nStudent's"
                   f" Answer:\n{user_answer}"
               )
-              eval_response = client.models.generate_content(
-                  model="gemini-2.5-flash", contents=eval_prompt
-              )
-              st.markdown("### 📊 Evaluation & Feedback")
-              st.markdown(eval_response.text)
+              try:
+                eval_response = generate_with_fallback(client, eval_prompt)
+                st.markdown("### 📊 Evaluation & Feedback")
+                st.markdown(eval_response.text)
+              except Exception as e:
+                st.error(
+                    f"Error evaluating answer. Please check your API key: {e}"
+                )
           else:
             st.warning("Please type your answer before evaluating.")
