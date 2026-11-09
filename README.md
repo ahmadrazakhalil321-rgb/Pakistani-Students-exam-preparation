@@ -1,9 +1,13 @@
-# Pakistani-Students-exam-preparation# 🇵🇰 PakStudy Exam Prep AI
+# 🇵🇰 Pakistani Matric & Intermediate Exam Prep AI
 
-An AI-powered exam preparation web application designed specifically for Pakistani Matric and Intermediate (FSc/FA) students. Students can upload their textbook chapters (PDF/TXT), generate board-style practice questions, and receive feedback and explanations in **English, Urdu, or Roman Urdu**.
+An AI-powered web application built with Streamlit and Google Gemini Flash designed to help Pakistani Matric and Intermediate students prepare for board examinations using their own textbook chapters.
 
 ## Features
-- 📄 **Chapter Upload**: Supports PDF and TXT textbook chapters.
-- 📝 **Practice Question Generator**: Creates MCQs, Short Questions, and Long Questions tailored to Pakistani board standards.
-- 💡 **AI Answer Evaluator**: Grades student answers against chapter text and provides constructive explanations in English, Urdu, or Roman Urdu.
-- ⚡ **Streamlit UI**: Fast, clean, and interactive web interface.
+- **Chapter Upload:** Upload PDF or TXT textbook chapters.
+- **Board-Style Questions:** Automatically generates short and long questions aligned with Pakistani board exam formats.
+- **Multilingual Support:** Evaluates student answers and provides explanations in **English**, **Urdu**, or **Roman Urdu**.
+
+## Tech Stack
+- **UI:** Streamlit
+- **AI Model:** Google Gemini Flash (`gemini-2.5-flash`) via the `google-genai` SDK
+- **PDF Parsing:** `pypdf`
