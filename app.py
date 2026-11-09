@@ -41,12 +41,8 @@ if not api_key:
       "⚠️ Please enter your Gemini API Key in the sidebar to get started."
   )
 else:
-  try:
-    # Initialize Gemini Client
-    client = genai.Client(api_key=api_key)
-  except Exception as e:
-    st.error(f"Failed to initialize Gemini Client: {e}")
-    st.stop()
+  # Initialize Gemini Client
+  client = genai.Client(api_key=api_key)
 
   uploaded_file = st.file_uploader(
       "Upload Textbook Chapter (PDF or TXT)", type=["pdf", "txt"]
@@ -55,19 +51,13 @@ else:
   chapter_text = ""
   if uploaded_file is not None:
     if uploaded_file.type == "application/pdf":
-      try:
-        reader = PdfReader(uploaded_file)
-        for page in reader.pages:
-          text = page.extract_text()
-          if text:
-            chapter_text += text + "\n"
-      except Exception as e:
-        st.error(f"Error reading PDF file: {e}")
+      reader = PdfReader(uploaded_file)
+      for page in reader.pages:
+        text = page.extract_text()
+        if text:
+          chapter_text += text + "\n"
     else:
-      try:
-        chapter_text = uploaded_file.read().decode("utf-8")
-      except Exception as e:
-        st.error(f"Error reading text file: {e}")
+      chapter_text = uploaded_file.read().decode("utf-8")
 
     if chapter_text:
       st.success(
@@ -92,15 +82,10 @@ else:
                 " Questions) suitable for Pakistani Matric/Intermediate exams."
                 f" Respond in {language}.\n\nChapter Text:\n{chapter_text[:12000]}"
             )
-            try:
-              response = client.models.generate_content(
-                  model="gemini-2.5-flash", contents=prompt
-              )
-              st.session_state["questions"] = response.text
-            except Exception as e:
-              st.error(
-                  f"Error generating questions. Please check your API key: {e}"
-              )
+            response = client.models.generate_content(
+                model="gemini-2.5-flash", contents=prompt
+            )
+            st.session_state["questions"] = response.text
 
       # Display Questions if available
       if "questions" in st.session_state:
@@ -125,15 +110,10 @@ else:
                   f" Text:\n{chapter_text[:12000]}\n\nStudent's"
                   f" Answer:\n{user_answer}"
               )
-              try:
-                eval_response = client.models.generate_content(
-                    model="gemini-3.5-flash", contents=eval_prompt
-                )
-                st.markdown("### 📊 Evaluation & Feedback")
-                st.markdown(eval_response.text)
-              except Exception as e:
-                st.error(
-                    f"Error evaluating answer. Please check your API key: {e}"
-                )
+              eval_response = client.models.generate_content(
+                  model="gemini-2.5-flash", contents=eval_prompt
+              )
+              st.markdown("### 📊 Evaluation & Feedback")
+              st.markdown(eval_response.text)
           else:
             st.warning("Please type your answer before evaluating.")
