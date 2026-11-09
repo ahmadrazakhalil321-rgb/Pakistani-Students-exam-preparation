@@ -1,114 +1,139 @@
 import streamlit as st
-import os
-import pypdf
-import google.generativeai as genai
+from google import genai
+from pypdf import PdfReader
 
-# Page configuration
+# Page Configuration
 st.set_page_config(
-    page_title="PakStudy Exam Prep AI",
-    page_icon="📚",
-    layout="wide"
+    page_title="Pakistani Exam Prep AI", page_icon="📚", layout="wide"
 )
 
-# App title and description
-st.title("🇵🇰 Pakistani Student Exam Prep AI")
-st.markdown("Upload your Matric or Intermediate textbook chapter, generate exam-style questions, and get detailed answers evaluated in **English, Urdu, or Roman Urdu**.")
-
-# Sidebar for configuration
-st.sidebar.header("Configuration")
-api_key = st.sidebar.text_input("Enter your Google Gemini API Key", type="password")
-
-language = st.sidebar.selectbox(
-    "Select Explanation Language",
-    ["Roman Urdu", "Urdu", "English"]
+st.title("🇵🇰 Pakistani Matric & Intermediate Exam Prep AI")
+st.markdown(
+    "Upload your textbook chapter, generate board-style practice questions,"
+    " test your knowledge, and get feedback in **English**, **Urdu**, or **Roman"
+    " Urdu**!"
 )
+
+# Sidebar for Configuration & Settings
+with st.sidebar:
+  st.header("⚙️ Configuration")
+  api_key = st.text_input(
+      "Enter Gemini API Key",
+      type="password",
+      help="Get your key from Google AI Studio",
+  )
+
+  st.header("🌐 Language Preference")
+  language = st.selectbox(
+      "Select Explanation Language", ["English", "Roman Urdu", "Urdu"]
+  )
+
+  st.markdown("---")
+  st.markdown("### 📖 How to Use:")
+  st.markdown(
+      "1. Enter your Gemini API Key.\n2. Upload a chapter PDF or text file.\n3."
+      " Click **Generate Practice Questions**.\n4. Type your answer and click"
+      " **Evaluate Answer** for instant AI feedback!"
+  )
 
 if not api_key:
-    st.warning("Please enter your Google Gemini API Key in the sidebar to proceed.")
+  st.warning(
+      "⚠️ Please enter your Gemini API Key in the sidebar to get started."
+  )
+else:
+  try:
+    # Initialize Gemini Client
+    client = genai.Client(api_key=api_key)
+  except Exception as e:
+    st.error(f"Failed to initialize Gemini Client: {e}")
     st.stop()
 
-genai.configure(api_key=api_key)
-model = genai.GenerativeModel('gemini-1.5-flash')
+  uploaded_file = st.file_uploader(
+      "Upload Textbook Chapter (PDF or TXT)", type=["pdf", "txt"]
+  )
 
-# Helper function to extract text from uploaded file
-def extract_text(uploaded_file):
+  chapter_text = ""
+  if uploaded_file is not None:
     if uploaded_file.type == "application/pdf":
-        reader = pypdf.PdfReader(uploaded_file)
-        text = ""
+      try:
+        reader = PdfReader(uploaded_file)
         for page in reader.pages:
-            text += page.extract_text() or ""
-        return text
-    elif uploaded_file.type == "text/plain":
-        return uploaded_file.getvalue().decode("utf-8")
-    return ""
+          text = page.extract_text()
+          if text:
+            chapter_text += text + "\n"
+      except Exception as e:
+        st.error(f"Error reading PDF file: {e}")
+    else:
+      try:
+        chapter_text = uploaded_file.read().decode("utf-8")
+      except Exception as e:
+        st.error(f"Error reading text file: {e}")
 
-uploaded_file = st.file_uploader("Upload Chapter (PDF or TXT)", type=["pdf", "txt"])
+    if chapter_text:
+      st.success(
+          f"✅ Chapter uploaded successfully! Extracted {len(chapter_text)}"
+          " characters."
+      )
 
-if uploaded_file is not None:
-    with st.spinner("Processing textbook chapter..."):
-        chapter_text = extract_text(uploaded_file)
-        st.session_state['chapter_text'] = chapter_text
-        st.success(f"Successfully loaded chapter! ({len(chapter_text)} characters extracted)")
+      with st.expander("👀 Preview Extracted Chapter Text"):
+        st.write(chapter_text[:1500] + "...")
 
-if 'chapter_text' in st.session_state and st.session_state['chapter_text']:
-    chapter_text = st.session_state['chapter_text']
-    
-    tab1, tab2 = st.tabs(["📝 Generate Practice Questions", "💡 Answer Evaluation & Tutor"])
-    
-    with tab1:
-        st.header("Generate Chapter Practice Questions")
-        q_type = st.selectbox("Select Question Type", ["Multiple Choice Questions (MCQs)", "Short Questions", "Long / Detailed Questions"])
-        num_questions = st.slider("Number of Questions", 3, 10, 5)
-        
-        if st.button("Generate Questions"):
-            with st.spinner("Generating exam questions based on Pakistani board standards..."):
-                prompt = f"""
-                You are an expert Pakistani board exam tutor (Matric / Intermediate FSc).
-                Based on the textbook chapter provided below, generate {num_questions} {q_type}.
-                Language requirement for the questions: {language}. If Urdu or Roman Urdu is selected, make it natural and easy for Pakistani students to understand.
-                
-                Chapter Content:
-                {chapter_text[:15000]}
-                
-                Provide clear questions and include an answer key at the bottom.
-                """
-                response = model.generate_content(prompt)
-                st.markdown("### Generated Practice Questions")
-                st.markdown(response.text)
-                st.session_state['last_questions'] = response.text
-                
-    with tab2:
-        st.header("Answer Evaluation & Explanation")
-        st.markdown("Test your preparation! Paste a question (or pick one generated earlier), write your answer, and let the AI evaluate it against the chapter.")
-        
-        user_question = st.text_area("Question", value=st.session_state.get('last_questions', ''))
-        user_answer = st.text_area("Your Answer")
-        
-        if st.button("Evaluate Answer"):
-            if not user_answer.strip():
-                st.warning("Please enter your answer first.")
-            else:
-                with st.spinner("Evaluating your answer and preparing detailed feedback..."):
-                    eval_prompt = f"""
-                    You are a strict and helpful Pakistani board examiner (Matric/Intermediate).
-                    Evaluate the student's answer based strictly on the textbook chapter text provided below.
-                    
-                    Language requirement for your feedback: {language}.
-                    
-                    Question:
-                    {user_question}
-                    
-                    Student's Answer:
-                    {user_answer}
-                    
-                    Textbook Chapter Reference:
-                    {chapter_text[:15000]}
-                    
-                    Provide:
-                    1. Correctness Assessment (Marks / Evaluation status)
-                    2. Detailed feedback explaining what was correct and what was missing.
-                    3. Model answer in {language}.
-                    """
-                    eval_response = model.generate_content(eval_prompt)
-                    st.markdown("### Examiner Feedback")
-                    st.markdown(eval_response.text)
+      st.markdown("---")
+      col1, col2 = st.columns(2)
+
+      with col1:
+        if st.button("📝 Generate Practice Questions", use_container_width=True):
+          with st.spinner(
+              "Generating board-style Short & Long questions..."
+          ):
+            prompt = (
+                "Based on the following textbook chapter text, generate 3-4"
+                " board-style exam questions (mix of Short Questions and Long"
+                " Questions) suitable for Pakistani Matric/Intermediate exams."
+                f" Respond in {language}.\n\nChapter Text:\n{chapter_text[:12000]}"
+            )
+            try:
+              response = client.models.generate_content(
+                  model="gemini-2.5-flash", contents=prompt
+              )
+              st.session_state["questions"] = response.text
+            except Exception as e:
+              st.error(
+                  f"Error generating questions. Please check your API key: {e}"
+              )
+
+      # Display Questions if available
+      if "questions" in st.session_state:
+        st.subheader("📋 Practice Questions")
+        st.markdown(st.session_state["questions"])
+
+        st.markdown("---")
+        st.subheader("✍️ Test Your Answer")
+        user_answer = st.text_area(
+            "Type your answer to the questions above:", height=150
+        )
+
+        if st.button("🔍 Evaluate Answer", use_container_width=True):
+          if user_answer.strip():
+            with st.spinner("Evaluating your answer against the chapter..."):
+              eval_prompt = (
+                  "You are an expert Pakistani board exam examiner. Based on"
+                  " the textbook chapter text provided below, evaluate the"
+                  " student's answer. Provide constructive feedback,"
+                  " constructive grading (out of total marks), and the ideal"
+                  f" model answer. You MUST explain everything in {language}.\n\nChapter"
+                  f" Text:\n{chapter_text[:12000]}\n\nStudent's"
+                  f" Answer:\n{user_answer}"
+              )
+              try:
+                eval_response = client.models.generate_content(
+                    model="gemini-3.5-flash", contents=eval_prompt
+                )
+                st.markdown("### 📊 Evaluation & Feedback")
+                st.markdown(eval_response.text)
+              except Exception as e:
+                st.error(
+                    f"Error evaluating answer. Please check your API key: {e}"
+                )
+          else:
+            st.warning("Please type your answer before evaluating.")
